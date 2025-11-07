@@ -120,6 +120,15 @@ class UserRegistrationRequest(BaseModel):
     name: str
     password: str  # plain text
 
+
+class OAuthRegisterRequest(BaseModel):
+    email: str
+    name: str
+    password: str | None = None
+    role: str | None = None
+    # any additional optional fields the frontend may collect
+    extra: dict | None = None
+
 @router.post("/api/register")
 async def register_user(user_data: UserRegistrationRequest, db: Session = Depends(get_db)):
     try:
@@ -166,3 +175,38 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+
+@router.post("/api/oauth/register")
+async def oauth_register(user_data: OAuthRegisterRequest, db: Session = Depends(get_db)):
+    """Create a user account for a user who signed in via Google OAuth.
+
+    The frontend should call this endpoint when the Google callback redirected to the
+    frontend with email/name and the user needs to provide additional details.
+    If password is provided, we'll store it hashed; otherwise create account with empty password.
+    Returns a JWT token for immediate login.
+    """
+    try:
+        # If user already exists, return a token immediately
+        if (existing := db.query(User).filter(User.email == user_data.email).first()):
+            jwt_payload = {"sub": existing.email, "name": existing.username, "role": existing.role}
+            token = create_access_token(jwt_payload, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+            return {"token": token, "user": {"email": existing.email, "name": existing.username, "role": existing.role}}
+
+        # Hash provided password or set to empty string
+        hashed_pw = get_password_hash(user_data.password) if user_data.password else ""
+
+        role_value = user_data.role or "user"
+
+        new_user = User(username=user_data.name, email=user_data.email, hashed_password=hashed_pw, role=role_value)
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+
+        jwt_payload = {"sub": new_user.email, "name": new_user.username, "role": new_user.role}
+        token = create_access_token(jwt_payload, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+
+        return {"token": token, "user": {"email": new_user.email, "name": new_user.username, "role": new_user.role}}
+    except Exception:
+        logging.exception("Failed to create OAuth user")
+        raise HTTPException(status_code=500, detail="Failed to register OAuth user")

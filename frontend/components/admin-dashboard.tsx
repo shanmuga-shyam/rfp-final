@@ -38,7 +38,11 @@ import {
   Settings,
   UploadCloud,
   FileSpreadsheet,
+  TrendingUp,
+  Clock,
+  CheckCheck,
 } from "lucide-react"
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import RFPMessagePage from "@/components/rfp-messages-page"
 import { ThemeToggle } from "@/components/theme-toggle" // Import ThemeToggle
 
@@ -120,6 +124,48 @@ export default function AdminDashboard({ user, onLogout, token }: AdminDashboard
   // New states for toggling forms
   const [showProfileForm, setShowProfileForm] = useState(false)
   const [showPasswordForm, setShowPasswordForm] = useState(false)
+
+  const [analyticsData, setAnalyticsData] = useState({
+    rfpsByStatus: [
+      { name: "Pending", value: 0, color: "#fbbf24" }, // Yellow
+      { name: "In Progress", value: 0, color: "#3b82f6" }, // Blue
+      { name: "Completed", value: 0, color: "#10b981" }, // Green
+      { name: "Assigned", value: 0, color: "#8b5cf6" }, // Purple
+    ],
+    employeeWorkload: [] as { name: string; rfps: number; color: string }[],
+  })
+
+  useEffect(() => {
+    const calculateAnalytics = () => {
+      const statusCounts = {
+        pending: rfps.filter((r) => r.status === "pending").length,
+        in_progress: rfps.filter((r) => r.status === "in_progress").length,
+        completed: rfps.filter((r) => r.status === "completed").length,
+        assigned: rfps.filter((r) => r.status === "assigned").length,
+      }
+
+      setAnalyticsData((prev) => ({
+        ...prev,
+        rfpsByStatus: [
+          { ...prev.rfpsByStatus[0], value: statusCounts.pending },
+          { ...prev.rfpsByStatus[1], value: statusCounts.in_progress },
+          { ...prev.rfpsByStatus[2], value: statusCounts.completed },
+          { ...prev.rfpsByStatus[3], value: statusCounts.assigned },
+        ],
+        employeeWorkload: workers
+          .sort((a, b) => b.rfps_processed - a.rfps_processed) // Sort by most processed
+          .slice(0, 5) // Take top 5
+          .map((worker, idx) => ({
+            name: worker.name,
+            rfps: worker.rfps_processed,
+            // Assign distinct colors to the top employees
+            color: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"][idx % 5],
+          })),
+      }))
+    }
+
+    calculateAnalytics()
+  }, [rfps, workers]) // Recalculate when rfps or workers change
 
   // Function to fetch company ID
   const fetchCompanyId = useCallback(async (userId: string) => {
@@ -367,7 +413,7 @@ export default function AdminDashboard({ user, onLogout, token }: AdminDashboard
     }
     fetchAllPdfUrls()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rfps])
+  }, [rfps, token]) // Dependencies include rfps and token
 
   const handleCreateWorker = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -610,38 +656,152 @@ export default function AdminDashboard({ user, onLogout, token }: AdminDashboard
       <div className="space-y-8">
         {/* Dashboard Stats */}
         {activeContent === "dashboard" && (
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card className="rounded-2xl shadow-lg border border-blue-200 dark:bg-gray-800 dark:border-gray-700">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-lg font-medium text-gray-700 dark:text-gray-300">Total RFPs</CardTitle>
-                <FileText className="h-5 w-5 text-blue-500 dark:text-blue-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold text-gray-900 dark:text-gray-100">{totalRFPs}</div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">All uploaded documents</p>
-              </CardContent>
-            </Card>
-            <Card className="rounded-2xl shadow-lg border border-green-200 dark:bg-gray-800 dark:border-gray-700">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-lg font-medium text-gray-700 dark:text-gray-300">Active Employees</CardTitle>
-                <Users className="h-5 w-5 text-green-500 dark:text-green-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold text-gray-900 dark:text-gray-100">{activeWorkers}</div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Currently active employees</p>
-              </CardContent>
-            </Card>
-            <Card className="rounded-2xl shadow-lg border border-purple-200 dark:bg-gray-800 dark:border-gray-700">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-lg font-medium text-gray-700 dark:text-gray-300">Current Projects</CardTitle>
-                <Activity className="h-5 w-5 text-purple-500 dark:text-purple-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold text-gray-900 dark:text-gray-100">{currentProjects}</div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">RFPs currently being processed</p>
-              </CardContent>
-            </Card>
-          </section>
+          <>
+            {/* Replace with new dashboard stats and charts */}
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <Card className="rounded-2xl shadow-lg border border-blue-200 dark:bg-gray-800 dark:border-gray-700">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <CardTitle className="text-lg font-medium text-gray-700 dark:text-gray-300">Total RFPs</CardTitle>
+                  <FileText className="h-5 w-5 text-blue-500 dark:text-blue-400" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-4xl font-bold text-gray-900 dark:text-gray-100">{totalRFPs}</div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">All uploaded documents</p>
+                </CardContent>
+              </Card>
+              <Card className="rounded-2xl shadow-lg border border-green-200 dark:bg-gray-800 dark:border-gray-700">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <CardTitle className="text-lg font-medium text-gray-700 dark:text-gray-300">
+                    Active Employees
+                  </CardTitle>
+                  <Users className="h-5 w-5 text-green-500 dark:text-green-400" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-4xl font-bold text-gray-900 dark:text-gray-100">{activeWorkers}</div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Currently active employees</p>
+                </CardContent>
+              </Card>
+              <Card className="rounded-2xl shadow-lg border border-purple-200 dark:bg-gray-800 dark:border-gray-700">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <CardTitle className="text-lg font-medium text-gray-700 dark:text-gray-300">
+                    Current Projects
+                  </CardTitle>
+                  <Activity className="h-5 w-5 text-purple-500 dark:text-purple-400" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-4xl font-bold text-gray-900 dark:text-gray-100">{currentProjects}</div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">RFPs currently being processed</p>
+                </CardContent>
+              </Card>
+            </section>
+
+            <section className="space-y-6">
+              {/* RFP Status Distribution */}
+              <Card className="rounded-2xl shadow-lg dark:bg-gray-800 dark:text-gray-100">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                      RFP Status Distribution
+                    </CardTitle>
+                    <TrendingUp className="h-5 w-5 text-blue-500 dark:text-blue-400" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={analyticsData.rfpsByStatus}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, value }) => `${name}: ${value}`} // Custom label
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {analyticsData.rfpsByStatus.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Employee Workload */}
+              <Card className="rounded-2xl shadow-lg dark:bg-gray-800 dark:text-gray-100">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                      Top Employee Workload
+                    </CardTitle>
+                    <Users className="h-5 w-5 text-green-500 dark:text-green-400" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={analyticsData.employeeWorkload}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" /> {/* Light gray grid */}
+                      <XAxis dataKey="name" stroke="#6b7280" /> {/* Darker gray axis labels */}
+                      <YAxis stroke="#6b7280" />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#1f2937", // Dark background
+                          border: "1px solid #374151", // Darker border
+                          borderRadius: "0.5rem", // Rounded corners
+                          color: "#f3f4f6", // Light text color
+                        }}
+                      />
+                      <Bar dataKey="rfps" fill="#3b82f6" radius={[8, 8, 0, 0]} /> {/* Blue bars with rounded top */}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Key Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="rounded-2xl shadow-lg border border-yellow-200 dark:bg-gray-800 dark:border-gray-700">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-700 dark:text-gray-300">Pending RFPs</CardTitle>
+                    <Clock className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                      {rfps.filter((r) => r.status === "pending").length}
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Waiting for assignment</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-2xl shadow-lg border border-blue-200 dark:bg-gray-800 dark:border-gray-700">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-700 dark:text-gray-300">In Progress</CardTitle>
+                    <Activity className="h-5 w-5 text-blue-500 dark:text-blue-400" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                      {rfps.filter((r) => r.status === "in_progress" || r.status === "assigned").length}
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Being processed</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-2xl shadow-lg border border-green-200 dark:bg-gray-800 dark:border-gray-700">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-sm font-medium text-gray-700 dark:text-gray-300">Completed</CardTitle>
+                    <CheckCheck className="h-5 w-5 text-green-500 dark:text-green-400" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                      {rfps.filter((r) => r.status === "completed").length}
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Successfully completed</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
+          </>
         )}
 
         {activeContent === "workers" && (
@@ -813,7 +973,13 @@ export default function AdminDashboard({ user, onLogout, token }: AdminDashboard
                                       : "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200"
                               }`}
                             >
-                              {rfp.status === "pending" ? "P" : rfp.status === "assigned" ? "A" : (rfp.status === "completed") ? "F" : rfp.status.replace(/_/g, " ")}
+                              {rfp.status === "pending"
+                                ? "P"
+                                : rfp.status === "assigned"
+                                  ? "A"
+                                  : rfp.status === "completed"
+                                    ? "F"
+                                    : rfp.status.replace(/_/g, " ")}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-gray-700 dark:text-gray-300">
@@ -1148,10 +1314,10 @@ export default function AdminDashboard({ user, onLogout, token }: AdminDashboard
                       {showProfileForm && (
                         <form
                           onSubmit={async (e) => {
-                            e.preventDefault();
-                            setLoading(true);
-                            setError(null);
-                            setSuccess(null);
+                            e.preventDefault()
+                            setLoading(true)
+                            setError(null)
+                            setSuccess(null)
                             try {
                               const response = await fetch("http://localhost:8000/api/admin/update", {
                                 method: "POST",
@@ -1164,38 +1330,42 @@ export default function AdminDashboard({ user, onLogout, token }: AdminDashboard
                                   user_name: user.name,
                                   email: user.email,
                                 }),
-                              });
+                              })
                               if (!response.ok) {
-                                const errorData = await response.json();
-                                throw new Error(errorData.detail || `Update failed (${response.status})`);
+                                const errorData = await response.json()
+                                throw new Error(errorData.detail || `Update failed (${response.status})`)
                               }
-                              setSuccess("Profile updated successfully!");
+                              setSuccess("Profile updated successfully!")
                             } catch (err) {
-                              setError(err instanceof Error ? err.message : "Update failed. Please try again.");
+                              setError(err instanceof Error ? err.message : "Update failed. Please try again.")
                             } finally {
-                              setLoading(false);
+                              setLoading(false)
                             }
                           }}
                           className="flex flex-col gap-4 p-4 border rounded-lg dark:border-gray-700 dark:bg-gray-700"
                         >
                           <div>
-                            <Label htmlFor="profile-name" className="font-medium dark:text-gray-100">Name</Label>
+                            <Label htmlFor="profile-name" className="font-medium dark:text-gray-100">
+                              Name
+                            </Label>
                             <Input
                               id="profile-name"
                               type="text"
                               defaultValue={user.name}
-                              onChange={(e) => user.name = e.target.value}
+                              onChange={(e) => (user.name = e.target.value)}
                               className="mt-1 rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                               required
                             />
                           </div>
                           <div>
-                            <Label htmlFor="profile-email" className="font-medium dark:text-gray-100">Email</Label>
+                            <Label htmlFor="profile-email" className="font-medium dark:text-gray-100">
+                              Email
+                            </Label>
                             <Input
                               id="profile-email"
                               type="email"
                               defaultValue={user.email}
-                              onChange={(e) => user.email = e.target.value}
+                              onChange={(e) => (user.email = e.target.value)}
                               className="mt-1 rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                               required
                             />
@@ -1209,25 +1379,21 @@ export default function AdminDashboard({ user, onLogout, token }: AdminDashboard
                           </Button>
                         </form>
                       )}
-                      <Button
-                        onClick={() => setShowProfileForm(!showProfileForm)}
-                        className="bg-blue-500 text-white"
-                      >
+                      <Button onClick={() => setShowProfileForm(!showProfileForm)} className="bg-blue-500 text-white">
                         {showProfileForm ? "Cancel" : "Update Profile"}
                       </Button>
-                      
-                      
+
                       <div className="mt-4"></div>
                       {/* Password Change Form */}
                       {showPasswordForm && (
                         <form
                           onSubmit={async (e) => {
-                            e.preventDefault();
-                            setLoading(true);
-                            setError(null);
-                            setSuccess(null);
-                            const form = e.target as HTMLFormElement;
-                            const newPassword = (form.elements.namedItem("new-password") as HTMLInputElement).value;
+                            e.preventDefault()
+                            setLoading(true)
+                            setError(null)
+                            setSuccess(null)
+                            const form = e.target as HTMLFormElement
+                            const newPassword = (form.elements.namedItem("new-password") as HTMLInputElement).value
                             try {
                               const response = await fetch("http://localhost:8000/api/change-password", {
                                 method: "POST",
@@ -1239,22 +1405,24 @@ export default function AdminDashboard({ user, onLogout, token }: AdminDashboard
                                   id: user.id,
                                   new_password: newPassword,
                                 }),
-                              });
+                              })
                               if (!response.ok) {
-                                const errorData = await response.json();
-                                throw new Error(errorData.detail || `Password change failed (${response.status})`);
+                                const errorData = await response.json()
+                                throw new Error(errorData.detail || `Password change failed (${response.status})`)
                               }
-                              setSuccess("Password changed successfully!");
+                              setSuccess("Password changed successfully!")
                             } catch (err) {
-                              setError(err instanceof Error ? err.message : "Password change failed. Please try again.");
+                              setError(err instanceof Error ? err.message : "Password change failed. Please try again.")
                             } finally {
-                              setLoading(false);
+                              setLoading(false)
                             }
                           }}
                           className="flex flex-col gap-4 p-4 border rounded-lg dark:border-gray-700 dark:bg-gray-700 mt-4"
                         >
                           <div>
-                            <Label htmlFor="new-password" className="font-medium dark:text-gray-100">New Password</Label>
+                            <Label htmlFor="new-password" className="font-medium dark:text-gray-100">
+                              New Password
+                            </Label>
                             <Input
                               id="new-password"
                               type="password"
@@ -1356,12 +1524,9 @@ export default function AdminDashboard({ user, onLogout, token }: AdminDashboard
               if (!open) setAddEmployeeMode("options") // Reset mode when dialog closes
             }}
           >
-            <DialogTrigger asChild>
-          
-            </DialogTrigger>
+            <DialogTrigger asChild></DialogTrigger>
             <DialogContent className="sm:max-w-md rounded-2xl dark:bg-gray-800 dark:text-gray-100">
               <DialogHeader>
-                
                 <DialogDescription className="dark:text-gray-300">
                   {addEmployeeMode === "options" && "Choose how you want to add employees."}
                   {addEmployeeMode === "single" && "Create a new employee account with RFP processing capabilities."}
