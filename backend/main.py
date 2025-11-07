@@ -45,11 +45,27 @@ load_dotenv()
 # Configure with your Gemini API key
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
-# Use the Gemini 1.5 Flash model
-model = genai.GenerativeModel("gemini-1.5-flash")
 
-# Make a request
-response = model.generate_content("Explain LangChain in one sentence.")
+# Optional: configure a model via environment variable (e.g. GEMINI_MODEL)
+# Do NOT call model.generate_content at import time — this can fail and will
+# block the application startup if the model name is invalid or unavailable.
+MODEL_NAME = os.getenv("GEMINI_MODEL", "")
+model = None
+if MODEL_NAME:
+    try:
+        # Lazily create the model client only if a model name is provided
+        model = genai.GenerativeModel(MODEL_NAME)
+    except Exception as e:
+        # Don't crash the app on import if the model is not available.
+        # Log the problem and continue; the app can still run without the model.
+        import traceback
+        print(f"Warning: failed to initialize generative model {MODEL_NAME}: {e}")
+        traceback.print_exc()
+        model = None
+
+# Example usage (for local testing) — call this from a function or a route,
+# not at module import. If you want to verify available models, use the
+# SDK/ListModels method at runtime and pick a supported model name.
 
 # Health check endpoint
 @app.get("/health")

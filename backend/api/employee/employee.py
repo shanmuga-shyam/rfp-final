@@ -8,6 +8,8 @@ from typing import List, Optional
 from fastapi.responses import StreamingResponse
 from fastapi import status, Request
 from datetime import datetime
+import os
+import logging
 import json
 from pydantic import BaseModel
 import google.generativeai as genai
@@ -135,18 +137,35 @@ def final_rfp(
     changes: str = Form(...),
     db: Session = Depends(get_db)
 ):
+    # Use GEMINI_MODEL env var for model name; instantiate lazily and handle failure
+    model_name = os.getenv("GEMINI_MODEL")
+    model = None
+    if model_name:
+        try:
+            model = genai.GenerativeModel(model_name)
+        except Exception:
+            logging.exception("Failed to initialize Gemini model '%s'", model_name)
 
-    llm = genai.GenerativeModel("gemini-1.5-flash")
-    prompt = llm.generate_content(
-        f"""
-        I have a document which contains the text "{text}". I want you to apply the following {changes} to each relevant part of the data. Modify the content accordingly and return the final output in the correct order, preserving structure and formatting. Apply only the changes mentioned—do not invent or omit anything.
-        """
-    )
-    
-    print(prompt.text)
-    return {
-        "prompt" : prompt.text
-    }        
+    if model is None:
+        # Graceful error telling the operator to configure the model
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "LLM not configured or unavailable. Set GEMINI_MODEL to a supported model name and ensure API credentials."
+            ),
+        )
+
+    try:
+        prompt = model.generate_content(
+            f"""
+            I have a document which contains the text "{text}". I want you to apply the following {changes} to each relevant part of the data. Modify the content accordingly and return the final output in the correct order, preserving structure and formatting. Apply only the changes mentioned—do not invent or omit anything.
+            """
+        )
+        print(getattr(prompt, "text", str(prompt)))
+        return {"prompt": getattr(prompt, "text", str(prompt))}
+    except Exception:
+        logging.exception("LLM generate_content failed in final_rfp")
+        raise HTTPException(status_code=500, detail="LLM generation failed; check server logs.")
 
 
 import boto3

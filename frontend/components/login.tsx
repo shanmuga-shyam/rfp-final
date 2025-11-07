@@ -26,27 +26,7 @@ const validateEmail = (email: string): boolean => {
   return emailRegex.test(email)
 }
 
-const validatePassword = (password: string): { isValid: boolean; errors: string[] } => {
-  const errors: string[] = []
 
-  if (password.length < 8) {
-    errors.push("Password must be at least 8 characters long")
-  }
-  if (!/(?=.*[a-z])/.test(password)) {
-    errors.push("Password must contain at least one lowercase letter")
-  }
-  if (!/(?=.*[A-Z])/.test(password)) {
-    errors.push("Password must contain at least one uppercase letter")
-  }
-  if (!/(?=.*\d)/.test(password)) {
-    errors.push("Password must contain at least one number")
-  }
-  if (!/(?=.*[@$!%*?&])/.test(password)) {
-    errors.push("Password must contain at least one special character")
-  }
-
-  return { isValid: errors.length === 0, errors }
-}
 
 export default function Login({ onLogin }: LoginProps) {
   const [showPassword, setShowPassword] = useState(false)
@@ -146,10 +126,10 @@ export default function Login({ onLogin }: LoginProps) {
       errors.email = "Please enter a valid email address"
     }
 
-    const passwordValidation = validatePassword(registerForm.password)
-    if (!passwordValidation.isValid) {
-      errors.password = passwordValidation.errors[0]
-    }
+    // const passwordValidation = validatePassword(registerForm.password)
+    // if (!passwordValidation.isValid) {
+    //   errors.password = passwordValidation.errors[0]
+    // }
 
     if (registerForm.password !== registerForm.confirmPassword) {
       errors.confirmPassword = "Passwords do not match"

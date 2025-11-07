@@ -51,16 +51,18 @@ const RFPMessagePage: React.FC<RFPMessagePageProps> = ({ user, rfpId, isAdmin })
     setError(null);
     setSuccess(null);
     try {
-      const endpoint = isAdmin
-        ? `http://localhost:8000/api/admin/rfps/${rfpId}/message`
-        : `http://localhost:8000/api/employee/rfps/${rfpId}/message`;
+      const endpoint = user.role === "admin"
+        ? `http://localhost:8000/api/admin/rfps/message`
+        : `http://localhost:8000/api/employee/rfps/message`;
+      // Optionally log the message body before sending
+      console.log(JSON.stringify({ content: newMessage }));
       const res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          'Authorization': `Bearer ${user.token}`,
+          Authorization: `Bearer ${user.token}`,
         },
-        body: JSON.stringify({ message: newMessage }),
+        body: JSON.stringify({ content: newMessage,id:rfpId })
       });
       if (!res.ok) throw new Error("Failed to send message");
       setSuccess("Message sent!");

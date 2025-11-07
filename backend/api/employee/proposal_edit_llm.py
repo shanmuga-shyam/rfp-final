@@ -10,8 +10,9 @@ from agents.tools.fall_back_tool import FallbackLLMTool
 import os
 from PyPDF2 import PdfReader
 from io import BytesIO
-from google.generativeai import GenerativeModel
 import google.generativeai as genai
+import os
+import logging
 
 router = APIRouter(prefix="/api", tags=["EmployeeProposalEdit"])
 
@@ -109,12 +110,30 @@ async def employee_custom_prompt_edit(
         raise HTTPException(status_code=500, detail=f"Failed to extract file text: {str(e)}")
     # LLM prompt
     try:
-        model = GenerativeModel("gemini-1.5-flash")
+        model_name = os.getenv("GEMINI_MODEL")
+        model = None
+        if model_name:
+            try:
+                model = genai.GenerativeModel(model_name)
+            except Exception:
+                logging.exception("Failed to initialize Gemini model '%s'", model_name)
+
         full_prompt = f"File Content:\n{file_text}\n\nInstruction: {prompt}"
-        response = model.generate_content(full_prompt)
-        result = response.text if hasattr(response, 'text') else str(response)
+        if model is None:
+            # graceful fallback when model is not configured
+            result = (
+                "LLM not configured or unavailable. Set the GEMINI_MODEL environment variable to a supported model "
+                "and ensure the API key/permissions are correct."
+            )
+        else:
+            try:
+                response = model.generate_content(full_prompt)
+                result = getattr(response, 'text', str(response))
+            except Exception:
+                logging.exception("LLM generate_content failed")
+                result = "LLM call failed; check server logs for details."
     except Exception as e:
-        print(f"[custom-prompt-edit] Exception during LLM: {str(e)}")
+        logging.exception("Unexpected error in custom prompt edit")
         result = f"Error: {str(e)}"
     return {"result": result}
 
@@ -133,13 +152,34 @@ async def employee_final_proposal(rfp_id: int, request: Request, db: Session = D
         if not rfp:
             raise HTTPException(status_code=404, detail="RFP not found.")
         # Optionally, you can add more context from the RFP or employee here
-        llm = genai.GenerativeModel("gemini-1.5-flash")
-        prompt = llm.generate_content(
-            f"""
-            You are an expert proposal writer. Refine and finalize the following proposal draft into a professional, cohesive document suitable for submission. Format with appropriate sections, summary, and conclusion. Return the result in Markdown format.\n\nProposal Draft:\n{proposal_text}
-            """
+        model_name = os.getenv("GEMINI_MODEL")
+        model = None
+        if model_name:
+            try:
+                model = genai.GenerativeModel(model_name)
+            except Exception:
+                logging.exception("Failed to initialize Gemini model '%s'", model_name)
+
+        prompt_text = (
+            f"You are an expert proposal writer. Refine and finalize the following proposal draft into a professional, cohesive document suitable for submission. Format with appropriate sections, summary, and conclusion. Return the result in Markdown format.\n\nProposal Draft:\n{proposal_text}"
         )
-        final_proposal_markdown = prompt.text
-        return {"result": final_proposal_markdown}
+
+        if model is None:
+            # graceful fallback
+            return {
+                "result": (
+                    "LLM not configured or unavailable. Set the GEMINI_MODEL environment variable to a supported model "
+                    "and ensure API credentials are available."
+                )
+            }
+
+        try:
+            prompt = model.generate_content(prompt_text)
+            final_proposal_markdown = getattr(prompt, 'text', str(prompt))
+            return {"result": final_proposal_markdown}
+        except Exception:
+            logging.exception("LLM generate_content failed for final proposal")
+            raise HTTPException(status_code=500, detail="LLM generation failed; check server logs.")
     except Exception as e:
+        logging.exception("Unexpected error in employee_final_proposal")
         raise HTTPException(status_code=500, detail=f"Failed to generate final proposal: {str(e)}")

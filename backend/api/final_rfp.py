@@ -1,5 +1,7 @@
 from fastapi import APIRouter, FastAPI, Request, HTTPException
 import google.generativeai as genai
+import os
+import logging
 from docx import Document
 from datetime import datetime
 import os
@@ -32,9 +34,15 @@ def going_to_edit(rfp_data: dict,
     employee_id = rfp_data.get("employee_id")
     print("id apro")
     print(employee_id)
-    llm = genai.GenerativeModel("gemini-1.5-flash")
-    prompt = llm.generate_content(
-        f"""
+    model_name = os.getenv("GEMINI_MODEL")
+    model = None
+    if model_name:
+        try:
+            model = genai.GenerativeModel(model_name)
+        except Exception:
+            logging.exception("Failed to initialize Gemini model '%s'", model_name)
+
+    full_prompt = f"""
         You are an expert proposal writer. Compile the following question responses into a cohesive, professional
         proposal document that addresses the original RFP requirements.
 
@@ -45,10 +53,16 @@ def going_to_edit(rfp_data: dict,
 
         rfp_data: {rfp_data}
         """
-    )
+
+    if model is None:
+        # Graceful fallback when there's no model configured
+        logging.warning("No GEMINI_MODEL configured; returning unprocessed rfp_data as fallback result.")
+        return {"prompt": "LLM not configured. Set GEMINI_MODEL to a supported model to enable proposal generation.", "rfp_data": rfp_data}
+
+    prompt = model.generate_content(full_prompt)
     print("inga iruke")
-    final_proposal_markdown = prompt.text
-    print(final_proposal_markdown)# or .content if that's the correct attribute
+    final_proposal_markdown = getattr(prompt, "text", str(prompt))
+    print(final_proposal_markdown)
     print(company_id)
     # company = db.query(Company).filter(Company.id==company_id).first()
     # print(company_id)
